@@ -23,10 +23,7 @@ header{
   padding:12px;
   text-align:center;
 }
-header .status{
-  font-size:12px;
-  opacity:.9;
-}
+header .status{font-size:12px;opacity:.9}
 
 /* CHAT */
 #chat{
@@ -41,50 +38,32 @@ header .status{
   max-width:80%;
   padding:8px 10px;
   border-radius:12px;
-  word-break:break-word;
-  font-size:15px;
-}
-.me{
-  align-self:flex-end;
-  background:#dcf8c6;
+  background:#fff;
   color:#000;
 }
-.other{
-  align-self:flex-start;
-  color:#000;
+.me{align-self:flex-end;background:#dcf8c6}
+.other{align-self:flex-start}
+.name{font-size:12px;opacity:.7;margin-bottom:3px}
+.meta{font-size:11px;opacity:.6;margin-top:3px;text-align:right}
+
+.msg img{max-width:100%;border-radius:10px}
+.msg video{max-width:100%;border-radius:10px}
+.msg audio{width:100%}
+
+.file-box{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  background:#f1f1f1;
+  padding:8px;
+  border-radius:8px;
 }
-.name{
-  font-size:12px;
-  opacity:.7;
-  margin-bottom:3px;
-}
-.meta{
-  font-size:11px;
-  opacity:.6;
-  margin-top:3px;
-  text-align:right;
-}
-.msg img{
-  max-width:100%;
-  border-radius:10px;
-  cursor:pointer;
-}
+.file-box a{text-decoration:none;color:#0072ff;font-weight:bold}
 
 /* FOOTER */
-footer{
-  background:#fff;
-  padding:6px;
-}
-#typing{
-  font-size:12px;
-  opacity:.7;
-  padding-left:10px;
-  height:16px;
-}
-.input-row{
-  display:flex;
-  gap:6px;
-}
+footer{background:#fff;padding:6px}
+#typing{font-size:12px;opacity:.7;padding-left:10px;height:16px}
+.input-row{display:flex;gap:6px}
 input[type=text]{
   flex:1;
   padding:10px;
@@ -93,6 +72,7 @@ input[type=text]{
   outline:none;
 }
 input[type=file]{display:none}
+
 button,.attach-btn{
   border:none;
   border-radius:50%;
@@ -100,18 +80,9 @@ button,.attach-btn{
   height:42px;
   font-size:18px;
   cursor:pointer;
-  display:flex;
-  align-items:center;
-  justify-content:center;
 }
-.send-btn{
-  background:#00c853;
-  color:#fff;
-}
-.attach-btn{
-  background:#ff9800;
-  color:#fff;
-}
+.attach-btn{background:#ff9800;color:#fff}
+.send-btn{background:#00c853;color:#fff}
 </style>
 </head>
 
@@ -127,8 +98,9 @@ button,.attach-btn{
 <footer>
   <div id="typing"></div>
   <div class="input-row">
-    <label for="imageInput" class="attach-btn">📷</label>
-    <input type="file" id="imageInput" accept="image/*">
+    <label for="fileInput" class="attach-btn">📎</label>
+    <input type="file" id="fileInput"
+      accept="image/*,video/mp4,audio/mpeg,.pdf,.zip,.doc,.docx,.apk">
     <input id="msg" placeholder="اكتب رسالة...">
     <button id="sendBtn" class="send-btn">➤</button>
   </div>
@@ -143,7 +115,7 @@ import {
   onSnapshot, serverTimestamp, updateDoc, doc, setDoc
 } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
 
-/* 🔥 INIT */
+/* INIT */
 const app = initializeApp(window.FIREBASE_CONFIG);
 const db = getFirestore(app);
 
@@ -151,76 +123,37 @@ const db = getFirestore(app);
 const CLOUD_NAME = "dfisng8rr";
 const UPLOAD_PRESET = "Chat-app";
 
-async function uploadImage(file){
+async function uploadFile(file){
   const form = new FormData();
   form.append("file", file);
   form.append("upload_preset", UPLOAD_PRESET);
 
+  const type = file.type.startsWith("video") ? "video"
+             : file.type.startsWith("audio") ? "video"
+             : "auto";
+
   const res = await fetch(
-    `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`,
+    `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/${type}/upload`,
     { method:"POST", body:form }
   );
-  const data = await res.json();
-  return data.secure_url;
+  return (await res.json()).secure_url;
 }
 
-/* 👤 USER */
-let uid = localStorage.getItem("uid");
-if(!uid){
-  uid="u_"+Math.random().toString(36).slice(2);
-  localStorage.setItem("uid",uid);
-}
+/* USER */
+let uid = localStorage.getItem("uid") || ("u_"+Math.random().toString(36).slice(2));
+localStorage.setItem("uid",uid);
+
 let username = localStorage.getItem("username");
 if(!username){
   username = prompt("اكتب اسمك");
   localStorage.setItem("username",username);
-}
-let color = localStorage.getItem("color");
-if(!color){
-  color=`hsl(${Math.random()*360},70%,60%)`;
-  localStorage.setItem("color",color);
 }
 
 /* UI */
 const chat=document.getElementById("chat");
 const msgInput=document.getElementById("msg");
 const sendBtn=document.getElementById("sendBtn");
-const imageInput=document.getElementById("imageInput");
-const typingDiv=document.getElementById("typing");
-const onlineStatus=document.getElementById("onlineStatus");
-
-/* PRESENCE */
-const presenceRef=doc(db,"presence",uid);
-setDoc(presenceRef,{name:username,online:true,lastSeen:serverTimestamp()},{merge:true});
-window.addEventListener("beforeunload",()=>{
-  setDoc(presenceRef,{online:false,lastSeen:serverTimestamp()},{merge:true});
-});
-onSnapshot(collection(db,"presence"),snap=>{
-  const arr=[];
-  snap.forEach(d=>{
-    if(d.id!==uid){
-      const u=d.data();
-      if(u.online) arr.push(`${u.name} متصل`);
-    }
-  });
-  onlineStatus.textContent=arr.length?arr.join(" | "):"لا يوجد متصلون";
-});
-
-/* TYPING */
-const typingRef=doc(db,"typing","status");
-let typingTimeout;
-onSnapshot(typingRef,snap=>{
-  if(!snap.exists()) return;
-  const users=Object.values(snap.data()).filter(v=>v&&v!==username);
-  typingDiv.textContent=users.length?users.join(", ")+" يكتب الآن...":"";
-});
-msgInput.addEventListener("input",()=>{
-  setDoc(typingRef,{[uid]:username},{merge:true});
-  clearTimeout(typingTimeout);
-  typingTimeout=setTimeout(()=>{
-    setDoc(typingRef,{[uid]:false},{merge:true});
-  },1500);
-});
+const fileInput=document.getElementById("fileInput");
 
 /* MESSAGES */
 const q=query(collection(db,"messages"),orderBy("time","asc"));
@@ -230,29 +163,27 @@ onSnapshot(q,snap=>{
     const m=d.data();
     const div=document.createElement("div");
     div.className="msg "+(m.uid===uid?"me":"other");
-    if(m.uid!==uid) div.style.background=m.color;
 
-    const content=m.type==="image"
-      ? `<img src="${m.url}" onclick="window.open('${m.url}','_blank')">`
-      : m.text;
-
-    let status="";
-    if(m.uid===uid){
-      if(m.status==="sent") status="✔";
-      if(m.status==="delivered") status="✔✔";
-      if(m.status==="seen") status="✔✔ Seen";
+    let content="";
+    if(m.type==="image"){
+      content=`<img src="${m.url}">`;
+    }else if(m.type==="video"){
+      content=`<video controls src="${m.url}"></video>`;
+    }else if(m.type==="audio"){
+      content=`<audio controls src="${m.url}"></audio>`;
+    }else if(m.type==="file"){
+      content=`<div class="file-box">📎 <a href="${m.url}" target="_blank">تحميل الملف</a></div>`;
+    }else{
+      content=m.text;
     }
 
     div.innerHTML=`
       <div class="name">${m.name}</div>
       ${content}
-      <div class="meta">${status}</div>
+      <div class="meta">${m.uid===uid && m.status==="seen"?"✔✔ Seen":""}</div>
     `;
     chat.appendChild(div);
 
-    if(m.uid!==uid && m.status==="sent"){
-      updateDoc(doc(db,"messages",d.id),{status:"delivered"});
-    }
     if(m.uid!==uid && m.status!=="seen"){
       updateDoc(doc(db,"messages",d.id),{status:"seen"});
     }
@@ -266,24 +197,28 @@ sendBtn.onclick=async()=>{
   if(!text) return;
 
   await addDoc(collection(db,"messages"),{
-    type:"text",text,uid,name:username,color,
+    type:"text",text,uid,name:username,
     time:serverTimestamp(),status:"sent"
   });
   msgInput.value="";
-  setDoc(typingRef,{[uid]:false},{merge:true});
 };
 
-/* SEND IMAGE */
-imageInput.onchange=async()=>{
-  const file=imageInput.files[0];
+/* SEND FILE */
+fileInput.onchange=async()=>{
+  const file=fileInput.files[0];
   if(!file) return;
 
-  const url=await uploadImage(file);
+  const url=await uploadFile(file);
+  let type="file";
+  if(file.type.startsWith("image")) type="image";
+  else if(file.type.startsWith("video")) type="video";
+  else if(file.type.startsWith("audio")) type="audio";
+
   await addDoc(collection(db,"messages"),{
-    type:"image",url,uid,name:username,color,
+    type,url,uid,name:username,
     time:serverTimestamp(),status:"sent"
   });
-  imageInput.value="";
+  fileInput.value="";
 };
 </script>
 
