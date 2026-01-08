@@ -3,28 +3,32 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Chat App</title>
+<title>Happy Chat</title>
 
 <style>
 *{box-sizing:border-box}
 body{
   margin:0;
   font-family:system-ui,-apple-system;
-  background:#0b141a;
-  color:#fff;
+  background:linear-gradient(135deg,#fdfcfb,#e2ebf0);
   height:100vh;
   display:flex;
   flex-direction:column;
 }
-header{
-  background:#202c33;
-  padding:10px;
-  text-align:center;
-  border-bottom:1px solid #2a3942;
-}
-header .title{font-weight:bold}
-header .status{font-size:12px;opacity:.7}
 
+/* HEADER */
+header{
+  background:linear-gradient(135deg,#00c6ff,#0072ff);
+  color:#fff;
+  padding:12px;
+  text-align:center;
+}
+header .status{
+  font-size:12px;
+  opacity:.9;
+}
+
+/* CHAT */
 #chat{
   flex:1;
   padding:10px;
@@ -35,47 +39,87 @@ header .status{font-size:12px;opacity:.7}
 }
 .msg{
   max-width:80%;
-  padding:8px;
-  border-radius:8px;
+  padding:8px 10px;
+  border-radius:12px;
   word-break:break-word;
+  font-size:15px;
 }
-.me{align-self:flex-end;background:#005c4b}
-.other{align-self:flex-start}
-.name{font-size:12px;opacity:.7;margin-bottom:4px}
-.meta{font-size:11px;opacity:.6;margin-top:4px;text-align:right}
-.msg img{max-width:100%;border-radius:6px;cursor:pointer}
+.me{
+  align-self:flex-end;
+  background:#dcf8c6;
+  color:#000;
+}
+.other{
+  align-self:flex-start;
+  color:#000;
+}
+.name{
+  font-size:12px;
+  opacity:.7;
+  margin-bottom:3px;
+}
+.meta{
+  font-size:11px;
+  opacity:.6;
+  margin-top:3px;
+  text-align:right;
+}
+.msg img{
+  max-width:100%;
+  border-radius:10px;
+  cursor:pointer;
+}
 
+/* FOOTER */
 footer{
-  background:#202c33;
+  background:#fff;
   padding:6px;
 }
-#typing{font-size:12px;opacity:.7;padding-left:10px;height:16px}
-.input-row{display:flex;gap:6px}
+#typing{
+  font-size:12px;
+  opacity:.7;
+  padding-left:10px;
+  height:16px;
+}
+.input-row{
+  display:flex;
+  gap:6px;
+}
 input[type=text]{
   flex:1;
   padding:10px;
-  border:none;
   border-radius:20px;
+  border:1px solid #ccc;
   outline:none;
 }
 input[type=file]{display:none}
-button{
-  background:#00a884;
+button,.attach-btn{
   border:none;
-  padding:10px 14px;
   border-radius:50%;
-  font-size:16px;
+  width:42px;
+  height:42px;
+  font-size:18px;
   cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
 }
-.attach{background:#2a3942}
+.send-btn{
+  background:#00c853;
+  color:#fff;
+}
+.attach-btn{
+  background:#ff9800;
+  color:#fff;
+}
 </style>
 </head>
 
 <body>
 
 <header>
-  <div class="title">💬 Chat</div>
-  <div class="status" id="onlineStatus">Loading...</div>
+  <div>💬 Happy Chat</div>
+  <div class="status" id="onlineStatus">متصل</div>
 </header>
 
 <div id="chat"></div>
@@ -83,26 +127,23 @@ button{
 <footer>
   <div id="typing"></div>
   <div class="input-row">
-    <label>
-      <input type="file" id="imageInput" accept="image/*">
-      <button class="attach">📷</button>
-    </label>
-    <input id="msg" placeholder="اكتب رسالة…">
-    <button id="sendBtn">➤</button>
+    <label for="imageInput" class="attach-btn">📷</label>
+    <input type="file" id="imageInput" accept="image/*">
+    <input id="msg" placeholder="اكتب رسالة...">
+    <button id="sendBtn" class="send-btn">➤</button>
   </div>
 </footer>
 
 <script src="/config.js"></script>
 
 <script type="module">
-/* 🔥 Firebase */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
 import {
   getFirestore, collection, addDoc, query, orderBy,
   onSnapshot, serverTimestamp, updateDoc, doc, setDoc
 } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
 
-/* 🚀 INIT */
+/* 🔥 INIT */
 const app = initializeApp(window.FIREBASE_CONFIG);
 const db = getFirestore(app);
 
@@ -129,13 +170,11 @@ if(!uid){
   uid="u_"+Math.random().toString(36).slice(2);
   localStorage.setItem("uid",uid);
 }
-
 let username = localStorage.getItem("username");
 if(!username){
   username = prompt("اكتب اسمك");
   localStorage.setItem("username",username);
 }
-
 let color = localStorage.getItem("color");
 if(!color){
   color=`hsl(${Math.random()*360},70%,60%)`;
@@ -150,29 +189,24 @@ const imageInput=document.getElementById("imageInput");
 const typingDiv=document.getElementById("typing");
 const onlineStatus=document.getElementById("onlineStatus");
 
-/* 🟢 Presence */
+/* PRESENCE */
 const presenceRef=doc(db,"presence",uid);
 setDoc(presenceRef,{name:username,online:true,lastSeen:serverTimestamp()},{merge:true});
 window.addEventListener("beforeunload",()=>{
   setDoc(presenceRef,{online:false,lastSeen:serverTimestamp()},{merge:true});
 });
-
 onSnapshot(collection(db,"presence"),snap=>{
   const arr=[];
   snap.forEach(d=>{
     if(d.id!==uid){
       const u=d.data();
-      if(u.online) arr.push(`${u.name} متصل الآن`);
-      else if(u.lastSeen?.toDate){
-        const m=Math.floor((Date.now()-u.lastSeen.toDate())/60000);
-        arr.push(`${u.name} آخر ظهور منذ ${m} دقيقة`);
-      }
+      if(u.online) arr.push(`${u.name} متصل`);
     }
   });
   onlineStatus.textContent=arr.length?arr.join(" | "):"لا يوجد متصلون";
 });
 
-/* ✍ Typing */
+/* TYPING */
 const typingRef=doc(db,"typing","status");
 let typingTimeout;
 onSnapshot(typingRef,snap=>{
@@ -188,7 +222,7 @@ msgInput.addEventListener("input",()=>{
   },1500);
 });
 
-/* 💬 Messages */
+/* MESSAGES */
 const q=query(collection(db,"messages"),orderBy("time","asc"));
 onSnapshot(q,snap=>{
   chat.innerHTML="";
@@ -198,7 +232,7 @@ onSnapshot(q,snap=>{
     div.className="msg "+(m.uid===uid?"me":"other");
     if(m.uid!==uid) div.style.background=m.color;
 
-    let content = m.type==="image"
+    const content=m.type==="image"
       ? `<img src="${m.url}" onclick="window.open('${m.url}','_blank')">`
       : m.text;
 
@@ -226,7 +260,7 @@ onSnapshot(q,snap=>{
   chat.scrollTop=chat.scrollHeight;
 });
 
-/* 📤 Send text */
+/* SEND TEXT */
 sendBtn.onclick=async()=>{
   const text=msgInput.value.trim();
   if(!text) return;
@@ -238,11 +272,8 @@ sendBtn.onclick=async()=>{
   msgInput.value="";
   setDoc(typingRef,{[uid]:false},{merge:true});
 };
-msgInput.addEventListener("keydown",e=>{
-  if(e.key==="Enter") sendBtn.click();
-});
 
-/* 📷 Send image */
+/* SEND IMAGE */
 imageInput.onchange=async()=>{
   const file=imageInput.files[0];
   if(!file) return;
