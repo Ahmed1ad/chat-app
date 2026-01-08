@@ -3,149 +3,173 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Persistent Chat</title>
+<title>Chat App</title>
 
 <style>
+*{box-sizing:border-box}
 body{
   margin:0;
-  font-family:Arial, sans-serif;
-  background:#0f172a;
+  font-family:system-ui, -apple-system, BlinkMacSystemFont;
+  background:#0b141a;
   color:#fff;
   height:100vh;
   display:flex;
   flex-direction:column;
 }
 header{
-  background:#020617;
+  background:#202c33;
   padding:12px;
   text-align:center;
   font-weight:bold;
+  border-bottom:1px solid #2a3942;
 }
 #chat{
   flex:1;
   padding:10px;
   overflow-y:auto;
+  display:flex;
+  flex-direction:column;
+  gap:6px;
 }
 .msg{
-  background:#1e293b;
-  margin-bottom:6px;
+  max-width:80%;
   padding:8px 10px;
-  border-radius:6px;
+  border-radius:8px;
   word-break:break-word;
+  font-size:15px;
+}
+.me{
+  align-self:flex-end;
+  background:#005c4b;
+}
+.other{
+  align-self:flex-start;
+}
+.meta{
+  font-size:11px;
+  opacity:.7;
+  margin-top:3px;
+  text-align:right;
 }
 footer{
   display:flex;
-  padding:10px;
-  background:#020617;
+  padding:8px;
+  background:#202c33;
   gap:6px;
 }
 input{
   flex:1;
   padding:10px;
   border:none;
-  border-radius:6px;
+  border-radius:20px;
   outline:none;
+  font-size:15px;
 }
 button{
-  background:#22c55e;
+  background:#00a884;
   border:none;
-  padding:10px 14px;
-  border-radius:6px;
-  font-weight:bold;
+  padding:10px 16px;
+  border-radius:50%;
+  font-size:16px;
   cursor:pointer;
 }
 </style>
 </head>
 <body>
 
-<header>💬 Persistent Chat</header>
+<header>💬 Chat</header>
 
 <div id="chat"></div>
 
 <footer>
-  <input id="msg" placeholder="اكتب رسالة...">
-  <button id="sendBtn">إرسال</button>
+  <input id="msg" placeholder="اكتب رسالة…">
+  <button id="sendBtn">➤</button>
 </footer>
 
+<!-- Firebase config from server -->
+<script src="/config.js"></script>
 
-  <script src="/config.js"></script>
-
-<!-- 🔥 Firebase Module -->
 <script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
-  import {
-    getFirestore,
-    collection,
-    addDoc,
-    query,
-    orderBy,
-    onSnapshot,
-    serverTimestamp
-  } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+import {
+  getFirestore,
+  collection,
+  addDoc,
+  query,
+  orderBy,
+  onSnapshot,
+  serverTimestamp,
+  updateDoc,
+  doc
+} from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
 
-  const firebaseConfig = window.FIREBASE_CONFIG;
+/* 🔐 INIT */
+const app = initializeApp(window.FIREBASE_CONFIG);
+const db = getFirestore(app);
 
-  // 🚀 Initialize
-  const app = initializeApp(firebaseConfig);
-  const db = getFirestore(app);
+/* 👤 USER ID + COLOR */
+let userId = localStorage.getItem("uid");
+if(!userId){
+  userId = "u_" + Math.random().toString(36).slice(2);
+  localStorage.setItem("uid", userId);
+}
 
-  const chat = document.getElementById("chat");
-  const msgInput = document.getElementById("msg");
-  const sendBtn = document.getElementById("sendBtn");
+let userColor = localStorage.getItem("color");
+if(!userColor){
+  userColor = `hsl(${Math.random()*360},70%,60%)`;
+  localStorage.setItem("color", userColor);
+}
 
+const chat = document.getElementById("chat");
+const msgInput = document.getElementById("msg");
+const sendBtn = document.getElementById("sendBtn");
 
-  const q = query(
-  collection(db, "messages"),
-  orderBy("time", "asc")
-);
+/* 📡 REALTIME LISTENER */
+const q = query(collection(db,"messages"), orderBy("time","asc"));
 
-onSnapshot(q, snapshot => {
-  chat.innerHTML = "";
-  snapshot.forEach(doc => {
-    const data = doc.data();
+onSnapshot(q, snapshot=>{
+  chat.innerHTML="";
+  snapshot.forEach(d=>{
+    const m = d.data();
     const div = document.createElement("div");
-    div.className = "msg";
-    div.textContent = data.text;
+    div.className = "msg " + (m.uid===userId?"me":"other");
+    if(m.uid!==userId) div.style.background = m.color;
+
+    div.innerHTML = `
+      ${m.text}
+      <div class="meta">
+        ${m.uid===userId ? (m.seen?"✔✔ Seen":"✔ Sent") : ""}
+      </div>
+    `;
+
     chat.appendChild(div);
+
+    if(m.uid!==userId && !m.seen){
+      updateDoc(doc(db,"messages",d.id),{seen:true});
+    }
   });
   chat.scrollTop = chat.scrollHeight;
 });
 
-  // 📥 تحميل الشات + تحديث لحظي
-  const q = query(
-    collection(db, "messages"),
-    orderBy("time")
-  );
+/* 📤 SEND */
+sendBtn.onclick = async ()=>{
+  const text = msgInput.value.trim();
+  if(!text) return;
 
-  onSnapshot(q, snapshot => {
-    chat.innerHTML = "";
-    snapshot.forEach(doc => {
-      const data = doc.data();
-      const div = document.createElement("div");
-      div.className = "msg";
-      div.textContent = data.text;
-      chat.appendChild(div);
-    });
-    chat.scrollTop = chat.scrollHeight;
+  await addDoc(collection(db,"messages"),{
+    text,
+    uid:userId,
+    color:userColor,
+    time:serverTimestamp(),
+    seen:false
   });
 
-  // 📤 إرسال رسالة
-  sendBtn.onclick = async () => {
-    const text = msgInput.value.trim();
-    if (!text) return;
+  msgInput.value="";
+};
 
-    await addDoc(collection(db, "messages"), {
-      text: text,
-      time: serverTimestamp()
-    });
-
-    msgInput.value = "";
-  };
-
-  // Enter key
-  msgInput.addEventListener("keypress", e => {
-    if (e.key === "Enter") sendBtn.click();
-  });
+msgInput.addEventListener("keydown",e=>{
+  if(e.key==="Enter") sendBtn.click();
+});
 </script>
 
 </body>
