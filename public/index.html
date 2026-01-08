@@ -9,13 +9,15 @@
 *{box-sizing:border-box}
 body{
   margin:0;
-  font-family:system-ui, -apple-system, BlinkMacSystemFont;
+  font-family:system-ui,-apple-system;
   background:#0b141a;
   color:#fff;
   height:100vh;
   display:flex;
   flex-direction:column;
 }
+
+/* HEADER */
 header{
   background:#202c33;
   padding:12px;
@@ -23,6 +25,8 @@ header{
   font-weight:bold;
   border-bottom:1px solid #2a3942;
 }
+
+/* CHAT */
 #chat{
   flex:1;
   padding:10px;
@@ -45,12 +49,19 @@ header{
 .other{
   align-self:flex-start;
 }
+.name{
+  font-size:12px;
+  opacity:.7;
+  margin-bottom:2px;
+}
 .meta{
   font-size:11px;
-  opacity:.7;
+  opacity:.6;
   margin-top:3px;
   text-align:right;
 }
+
+/* INPUT */
 footer{
   display:flex;
   padding:8px;
@@ -73,6 +84,34 @@ button{
   font-size:16px;
   cursor:pointer;
 }
+
+/* USERNAME MODAL */
+#overlay{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.8);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index:10;
+}
+#modal{
+  background:#202c33;
+  padding:20px;
+  border-radius:8px;
+  width:90%;
+  max-width:320px;
+  text-align:center;
+}
+#modal input{
+  width:100%;
+  margin-top:10px;
+}
+#modal button{
+  margin-top:10px;
+  width:100%;
+  border-radius:8px;
+}
 </style>
 </head>
 <body>
@@ -86,7 +125,16 @@ button{
   <button id="sendBtn">➤</button>
 </footer>
 
-<!-- Firebase config from server -->
+<!-- Username Modal -->
+<div id="overlay" style="display:none">
+  <div id="modal">
+    <h3>👤 اسمك</h3>
+    <input id="nameInput" placeholder="اكتب اسمك">
+    <button id="saveName">دخول</button>
+  </div>
+</div>
+
+<!-- Firebase config -->
 <script src="/config.js"></script>
 
 <script type="module">
@@ -107,66 +155,82 @@ import {
 const app = initializeApp(window.FIREBASE_CONFIG);
 const db = getFirestore(app);
 
-/* 👤 USER ID + COLOR */
-let userId = localStorage.getItem("uid");
-if(!userId){
-  userId = "u_" + Math.random().toString(36).slice(2);
-  localStorage.setItem("uid", userId);
+/* 👤 USER */
+let uid = localStorage.getItem("uid");
+if(!uid){
+  uid = "u_" + Math.random().toString(36).slice(2);
+  localStorage.setItem("uid", uid);
 }
 
-let userColor = localStorage.getItem("color");
-if(!userColor){
-  userColor = `hsl(${Math.random()*360},70%,60%)`;
-  localStorage.setItem("color", userColor);
+let username = localStorage.getItem("username");
+let color = localStorage.getItem("color");
+if(!color){
+  color = `hsl(${Math.random()*360},70%,60%)`;
+  localStorage.setItem("color", color);
 }
 
+/* UI */
 const chat = document.getElementById("chat");
 const msgInput = document.getElementById("msg");
 const sendBtn = document.getElementById("sendBtn");
+const overlay = document.getElementById("overlay");
+const nameInput = document.getElementById("nameInput");
+const saveName = document.getElementById("saveName");
 
-/* 📡 REALTIME LISTENER */
+/* Username check */
+if(!username){
+  overlay.style.display="flex";
+}
+saveName.onclick = ()=>{
+  const n = nameInput.value.trim();
+  if(!n) return;
+  username = n;
+  localStorage.setItem("username", username);
+  overlay.style.display="none";
+};
+
+/* 📡 REALTIME */
 const q = query(collection(db,"messages"), orderBy("time","asc"));
 
-onSnapshot(q, snapshot=>{
+onSnapshot(q,snap=>{
   chat.innerHTML="";
-  snapshot.forEach(d=>{
+  snap.forEach(d=>{
     const m = d.data();
     const div = document.createElement("div");
-    div.className = "msg " + (m.uid===userId?"me":"other");
-    if(m.uid!==userId) div.style.background = m.color;
+    div.className="msg "+(m.uid===uid?"me":"other");
+    if(m.uid!==uid) div.style.background=m.color;
 
-    div.innerHTML = `
+    div.innerHTML=`
+      <div class="name">${m.name}</div>
       ${m.text}
       <div class="meta">
-        ${m.uid===userId ? (m.seen?"✔✔ Seen":"✔ Sent") : ""}
+        ${m.uid===uid ? (m.seen?"✔✔ Seen":"✔ Sent") : ""}
       </div>
     `;
-
     chat.appendChild(div);
 
-    if(m.uid!==userId && !m.seen){
+    if(m.uid!==uid && !m.seen){
       updateDoc(doc(db,"messages",d.id),{seen:true});
     }
   });
-  chat.scrollTop = chat.scrollHeight;
+  chat.scrollTop=chat.scrollHeight;
 });
 
 /* 📤 SEND */
-sendBtn.onclick = async ()=>{
-  const text = msgInput.value.trim();
-  if(!text) return;
+sendBtn.onclick=async()=>{
+  const text=msgInput.value.trim();
+  if(!text||!username) return;
 
   await addDoc(collection(db,"messages"),{
     text,
-    uid:userId,
-    color:userColor,
+    uid,
+    name:username,
+    color,
     time:serverTimestamp(),
     seen:false
   });
-
   msgInput.value="";
 };
-
 msgInput.addEventListener("keydown",e=>{
   if(e.key==="Enter") sendBtn.click();
 });
