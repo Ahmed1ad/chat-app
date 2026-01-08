@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+<meta charset="UTF-8">
+<title>Chat</title>
+</head>
+<body>
+
+<h2>💬 Chat App</h2>
+
+<div id="chat" style="border:1px solid #ccc;height:300px;overflow:auto"></div>
+
+<input id="msg" placeholder="اكتب رسالة">
+<input type="file" id="file">
+<button onclick="send()">إرسال</button>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="script.js"></script>
+</body>
+</html>
