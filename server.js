@@ -10,6 +10,9 @@ const io = new Server(server);
 app.use(express.static("public"));
 app.use("/uploads", express.static("uploads"));
 
+/* 🔹 هنا بنخزن الرسائل */
+let messages = [];
+
 const storage = multer.diskStorage({
   destination: "uploads",
   filename: (_, file, cb) => cb(null, Date.now() + file.originalname)
@@ -21,7 +24,15 @@ app.post("/upload", upload.single("file"), (req, res) => {
 });
 
 io.on("connection", socket => {
-  socket.on("message", msg => io.emit("message", msg));
+
+  /* 🔹 ابعت الشات القديم للي داخل */
+  socket.emit("chat-history", messages);
+
+  socket.on("message", msg => {
+    messages.push(msg);        // حفظ الرسالة
+    io.emit("message", msg);   // بثها لكل الناس
+  });
+
 });
 
 server.listen(process.env.PORT || 3000);
