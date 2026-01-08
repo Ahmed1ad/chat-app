@@ -2,235 +2,214 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Pro Chat</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WhatsChat</title>
 
-<!-- Emoji Mart -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/emoji-mart@latest/css/emoji-mart.css">
+<!-- Bootstrap -->
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 
 <style>
-*{box-sizing:border-box}
 body{
-  margin:0;
-  font-family:system-ui,-apple-system;
-  background:#0f172a;
+  background:#e5ddd5;
   height:100vh;
-  display:flex;
-  justify-content:center;
+  overflow:hidden;
 }
-.app{
-  width:100%;
+.chat-app{
   max-width:480px;
-  background:#f0f2f5;
+  margin:auto;
+  height:100vh;
   display:flex;
   flex-direction:column;
-  height:100vh;
+  background:#f0f2f5;
 }
-
-/* HEADER */
-.header{
+.chat-header{
   background:#075e54;
   color:#fff;
-  padding:12px;
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
+  padding:10px;
 }
-.header small{opacity:.8}
-
-/* CHAT */
-.chat{
+.chat-body{
   flex:1;
   padding:10px;
   overflow-y:auto;
-  display:flex;
-  flex-direction:column;
-  gap:6px;
 }
 .msg{
   max-width:75%;
   padding:8px 10px;
   border-radius:8px;
-  font-size:15px;
+  margin-bottom:6px;
   position:relative;
 }
-.me{align-self:flex-start;background:#dcf8c6}
-.other{align-self:flex-end;background:#fff}
-.msg .name{font-size:12px;opacity:.6}
-.msg .meta{font-size:11px;opacity:.6;text-align:left}
-.msg img,video,audio{max-width:100%;border-radius:6px}
-
-/* FOOTER */
-.footer{
+.me{
+  background:#dcf8c6;
+  margin-right:auto;
+}
+.other{
+  background:#fff;
+  margin-left:auto;
+}
+.msg .name{
+  font-size:12px;
+  opacity:.6;
+}
+.msg .meta{
+  font-size:11px;
+  text-align:left;
+  opacity:.6;
+}
+.chat-footer{
   padding:6px;
   background:#f0f2f5;
 }
-.row{
-  display:flex;
-  gap:6px;
-  align-items:center;
+audio,video{
+  width:100%;
+  border-radius:6px;
 }
-input[type=text]{
-  flex:1;
-  padding:10px;
-  border-radius:20px;
-  border:1px solid #ccc;
-}
-button{
-  border:none;
-  border-radius:50%;
-  width:42px;
-  height:42px;
-  cursor:pointer;
-  font-size:18px;
-}
-.send{background:#00c853;color:#fff}
-.attach{background:#ff9800;color:#fff}
-.emoji{background:#03a9f4;color:#fff}
-.voice{background:#9c27b0;color:#fff}
-
-#emojiPicker{
+.msg-menu{
   position:absolute;
-  bottom:70px;
-  display:none;
+  top:4px;
+  left:6px;
+  cursor:pointer;
 }
 </style>
 </head>
 
 <body>
 
-<div class="app">
-  <div class="header">
+<div class="chat-app">
+
+  <!-- HEADER -->
+  <div class="chat-header d-flex justify-content-between align-items-center">
     <div>
-      <strong>Pro Chat</strong><br>
-      <small id="status">متصل</small>
+      <strong>WhatsChat</strong><br>
+      <small id="typing">متصل</small>
     </div>
-    <button onclick="clearChat()" title="حذف الشات">🗑️</button>
+    <button class="btn btn-sm btn-danger" id="clearChat">حذف الشات</button>
   </div>
 
-  <div class="chat" id="chat"></div>
+  <!-- BODY -->
+  <div class="chat-body" id="chat"></div>
 
-  <div class="footer">
-    <div class="row">
-      <button class="emoji" onclick="toggleEmoji()">😀</button>
-      <input id="msg" type="text" placeholder="اكتب رسالة">
-      <button class="attach" onclick="file.click()">📎</button>
-      <button class="voice" id="voiceBtn">🎙️</button>
-      <button class="send" onclick="sendText()">➤</button>
+  <!-- FOOTER -->
+  <div class="chat-footer">
+    <div class="input-group">
+      <input type="file" id="fileInput" hidden>
+      <button class="btn btn-secondary" onclick="fileInput.click()">📎</button>
+      <input type="text" id="msg" class="form-control" placeholder="اكتب رسالة">
+      <button class="btn btn-success" id="sendBtn">➤</button>
     </div>
+    <button class="btn btn-warning w-100 mt-2" id="recordBtn">🎙️ تسجيل صوت</button>
   </div>
+
 </div>
 
-<input type="file" id="file" hidden>
-
-<div id="emojiPicker"></div>
-
 <script src="/config.js"></script>
-
-<script src="https://cdn.jsdelivr.net/npm/emoji-mart@latest/dist/browser.js"></script>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
 import {
   getFirestore, collection, addDoc, onSnapshot,
-  deleteDoc, doc, serverTimestamp, query, orderBy
+  serverTimestamp, deleteDoc, doc, query, orderBy
 } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
 
-/* INIT */
 const app = initializeApp(window.FIREBASE_CONFIG);
 const db = getFirestore(app);
 
 /* USER */
-const uid = localStorage.uid ||= "u_"+Math.random().toString(36).slice(2);
-const name = localStorage.username ||= prompt("اسمك");
+let uid = localStorage.uid || (localStorage.uid="u_"+Math.random().toString(36).slice(2));
+let name = localStorage.username || (localStorage.username=prompt("اسمك؟"));
 
 /* CLOUDINARY */
 const CLOUD_NAME="dfisng8rr";
 const UPLOAD_PRESET="Chat-app";
 
-/* EMOJI */
-const picker = new EmojiMart.Picker({
-  onEmojiSelect:e=>msg.value+=e.native
-});
-emojiPicker.appendChild(picker);
+/* UPLOAD */
+async function upload(file){
+  const f=new FormData();
+  f.append("file",file);
+  f.append("upload_preset",UPLOAD_PRESET);
+  const type=file.type.startsWith("video")?"video":"auto";
+  const r=await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/${type}/upload`,{method:"POST",body:f});
+  return (await r.json()).secure_url;
+}
 
-/* CHAT */
-const chat = document.getElementById("chat");
-const q = query(collection(db,"messages"),orderBy("time"));
+/* RENDER */
+const chat=document.getElementById("chat");
+const q=query(collection(db,"messages"),orderBy("time"));
 onSnapshot(q,s=>{
   chat.innerHTML="";
   s.forEach(d=>{
     const m=d.data();
     const div=document.createElement("div");
     div.className="msg "+(m.uid===uid?"me":"other");
-    let content=m.text||"";
-    if(m.type==="image") content=`<img src="${m.url}">`;
-    if(m.type==="video") content=`<video controls src="${m.url}"></video>`;
-    if(m.type==="audio") content=`<audio controls src="${m.url}"></audio>`;
+
+    let c="";
+    if(m.type==="image") c=`<img src="${m.url}" class="img-fluid">`;
+    else if(m.type==="video") c=`<video controls src="${m.url}"></video>`;
+    else if(m.type==="audio") c=`<audio controls src="${m.url}"></audio>`;
+    else if(m.type==="file") c=`<a href="${m.url}" target="_blank">📎 تحميل الملف</a>`;
+    else c=m.text;
+
     div.innerHTML=`
+      <div class="msg-menu" onclick="deleteMsg('${d.id}',${m.uid===uid})">⋮</div>
       <div class="name">${m.name}</div>
-      ${content}
-      <div class="meta">
-        <button onclick="del('${d.id}')">🗑️</button>
-      </div>
+      ${c}
+      <div class="meta">${m.uid===uid?"✔✔ Seen":""}</div>
     `;
     chat.appendChild(div);
   });
   chat.scrollTop=chat.scrollHeight;
 });
 
-/* SEND */
-async function sendText(){
+/* SEND TEXT */
+sendBtn.onclick=async()=>{
   if(!msg.value) return;
   await addDoc(collection(db,"messages"),{
-    text:msg.value,uid,name,time:serverTimestamp()
+    type:"text",text:msg.value,uid,name,time:serverTimestamp()
   });
   msg.value="";
-}
+};
 
-/* DELETE */
-window.del=async(id)=>{
-  if(confirm("هل أنت متأكد من الحذف؟")){
+/* FILE */
+fileInput.onchange=async()=>{
+  const f=fileInput.files[0];
+  const url=await upload(f);
+  let type="file";
+  if(f.type.startsWith("image")) type="image";
+  else if(f.type.startsWith("video")) type="video";
+  else if(f.type.startsWith("audio")) type="audio";
+  await addDoc(collection(db,"messages"),{type,url,uid,name,time:serverTimestamp()});
+};
+
+/* DELETE MESSAGE */
+window.deleteMsg=async(id,me)=>{
+  if(me || confirm("حذف للجميع؟")){
     await deleteDoc(doc(db,"messages",id));
   }
 };
-window.clearChat=async()=>{
+
+/* CLEAR CHAT */
+clearChat.onclick=async()=>{
   if(!confirm("حذف كل الشات؟")) return;
   const snap=await getDocs(collection(db,"messages"));
   snap.forEach(d=>deleteDoc(d.ref));
 };
 
-/* FILE */
-file.onchange=async()=>{
-  if(!confirm("إرسال هذا الملف؟")) return;
-};
-
-/* EMOJI */
-window.toggleEmoji=()=>{
-  emojiPicker.style.display =
-    emojiPicker.style.display==="none"?"block":"none";
-};
-
-/* VOICE */
-let recorder, recording=false;
-voiceBtn.onclick=async()=>{
-  if(!recording){
-    const stream=await navigator.mediaDevices.getUserMedia({audio:true});
-    recorder=new MediaRecorder(stream);
-    const chunks=[];
-    recorder.ondataavailable=e=>chunks.push(e.data);
-    recorder.onstop=async()=>{
-      const blob=new Blob(chunks,{type:"audio/webm"});
-      // upload here...
-    };
-    recorder.start();
-    recording=true;
-    voiceBtn.textContent="⏹️";
-  }else{
-    recorder.stop();
-    recording=false;
-    voiceBtn.textContent="🎙️";
-  }
+/* VOICE RECORD */
+let rec, chunks=[];
+recordBtn.onclick=async()=>{
+  const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+  rec=new MediaRecorder(stream);
+  rec.start();
+  recordBtn.textContent="⏹️ إيقاف";
+  rec.ondataavailable=e=>chunks.push(e.data);
+  rec.onstop=async()=>{
+    const blob=new Blob(chunks,{type:"audio/mp3"});
+    chunks=[];
+    const url=await upload(blob);
+    await addDoc(collection(db,"messages"),{type:"audio",url,uid,name,time:serverTimestamp()});
+    recordBtn.textContent="🎙️ تسجيل صوت";
+  };
+  recordBtn.onclick=()=>rec.stop();
 };
 </script>
 
