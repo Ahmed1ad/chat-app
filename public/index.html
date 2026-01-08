@@ -67,6 +67,9 @@ button{
   <button id="sendBtn">إرسال</button>
 </footer>
 
+
+  <script src="/config.js"></script>
+
 <!-- 🔥 Firebase Module -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
@@ -80,15 +83,7 @@ button{
     serverTimestamp
   } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
 
-  // 🔐 Firebase Config (بتاعك)
-  const firebaseConfig = {
-    apiKey: "AIzaSyC64RxCFd3rxuUw_DkxrK7Rsyaf78-9DPI",
-    authDomain: "chat-app-63418.firebaseapp.com",
-    projectId: "chat-app-63418",
-    storageBucket: "chat-app-63418.firebasestorage.app",
-    messagingSenderId: "681829729262",
-    appId: "1:681829729262:web:689f7a5d3a189a7ea404ff"
-  };
+  const firebaseConfig = window.FIREBASE_CONFIG;
 
   // 🚀 Initialize
   const app = initializeApp(firebaseConfig);
