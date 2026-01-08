@@ -3,139 +3,136 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Live Chat</title>
+<title>Persistent Chat</title>
 
 <style>
-  body{
-    margin:0;
-    font-family:Arial, sans-serif;
-    background:#0f172a;
-    color:#fff;
-    display:flex;
-    flex-direction:column;
-    height:100vh;
-  }
-  header{
-    background:#020617;
-    padding:12px;
-    text-align:center;
-    font-weight:bold;
-    border-bottom:1px solid #1e293b;
-  }
-  #chat{
-    flex:1;
-    padding:10px;
-    overflow-y:auto;
-  }
-  .msg{
-    background:#1e293b;
-    margin-bottom:8px;
-    padding:8px 10px;
-    border-radius:6px;
-    max-width:85%;
-    word-break:break-word;
-  }
-  .me{
-    background:#2563eb;
-    margin-left:auto;
-  }
-  footer{
-    display:flex;
-    padding:10px;
-    background:#020617;
-    gap:5px;
-    border-top:1px solid #1e293b;
-  }
-  footer input[type="text"]{
-    flex:1;
-    padding:10px;
-    border:none;
-    border-radius:5px;
-    outline:none;
-  }
-  footer input[type="file"]{
-    display:none;
-  }
-  .file-btn{
-    background:#334155;
-    padding:10px 12px;
-    border-radius:5px;
-    cursor:pointer;
-  }
-  button{
-    background:#22c55e;
-    border:none;
-    padding:10px 14px;
-    border-radius:5px;
-    color:#000;
-    font-weight:bold;
-    cursor:pointer;
-  }
+body{
+  margin:0;
+  font-family:Arial, sans-serif;
+  background:#0f172a;
+  color:#fff;
+  height:100vh;
+  display:flex;
+  flex-direction:column;
+}
+header{
+  background:#020617;
+  padding:12px;
+  text-align:center;
+  font-weight:bold;
+}
+#chat{
+  flex:1;
+  padding:10px;
+  overflow-y:auto;
+}
+.msg{
+  background:#1e293b;
+  margin-bottom:6px;
+  padding:8px 10px;
+  border-radius:6px;
+  word-break:break-word;
+}
+footer{
+  display:flex;
+  padding:10px;
+  background:#020617;
+  gap:6px;
+}
+input{
+  flex:1;
+  padding:10px;
+  border:none;
+  border-radius:6px;
+  outline:none;
+}
+button{
+  background:#22c55e;
+  border:none;
+  padding:10px 14px;
+  border-radius:6px;
+  font-weight:bold;
+  cursor:pointer;
+}
 </style>
 </head>
 <body>
 
-<header>💬 Live Chat</header>
+<header>💬 Persistent Chat</header>
 
 <div id="chat"></div>
 
 <footer>
-  <label class="file-btn">
-    📎
-    <input type="file" id="file">
-  </label>
-  <input type="text" id="msg" placeholder="اكتب رسالة...">
-  <button onclick="send()">إرسال</button>
+  <input id="msg" placeholder="اكتب رسالة...">
+  <button id="sendBtn">إرسال</button>
 </footer>
 
-<script src="/socket.io/socket.io.js"></script>
+<!-- 🔥 Firebase Module -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+  import {
+    getFirestore,
+    collection,
+    addDoc,
+    query,
+    orderBy,
+    onSnapshot,
+    serverTimestamp
+  } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
 
-<script>
-const socket = io();
-const chat = document.getElementById("chat");
-const msgInput = document.getElementById("msg");
-const fileInput = document.getElementById("file");
+  // 🔐 Firebase Config (بتاعك)
+  const firebaseConfig = {
+    apiKey: "AIzaSyC64RxCFd3rxuUw_DkxrK7Rsyaf78-9DPI",
+    authDomain: "chat-app-63418.firebaseapp.com",
+    projectId: "chat-app-63418",
+    storageBucket: "chat-app-63418.firebasestorage.app",
+    messagingSenderId: "681829729262",
+    appId: "1:681829729262:web:689f7a5d3a189a7ea404ff"
+  };
 
-  socket.on("chat-history", history => {
-  history.forEach(msg => {
-    const div = document.createElement("div");
-    div.className = "msg";
-    div.innerHTML = msg;
-    chat.appendChild(div);
+  // 🚀 Initialize
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  const chat = document.getElementById("chat");
+  const msgInput = document.getElementById("msg");
+  const sendBtn = document.getElementById("sendBtn");
+
+  // 📥 تحميل الشات + تحديث لحظي
+  const q = query(
+    collection(db, "messages"),
+    orderBy("time")
+  );
+
+  onSnapshot(q, snapshot => {
+    chat.innerHTML = "";
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      const div = document.createElement("div");
+      div.className = "msg";
+      div.textContent = data.text;
+      chat.appendChild(div);
+    });
+    chat.scrollTop = chat.scrollHeight;
   });
-});
 
-socket.on("message", data => {
-  const div = document.createElement("div");
-  div.className = "msg";
-  div.innerHTML = data;
-  chat.appendChild(div);
-  chat.scrollTop = chat.scrollHeight;
-});
+  // 📤 إرسال رسالة
+  sendBtn.onclick = async () => {
+    const text = msgInput.value.trim();
+    if (!text) return;
 
-function send(){
-  const msg = msgInput.value.trim();
+    await addDoc(collection(db, "messages"), {
+      text: text,
+      time: serverTimestamp()
+    });
 
-  if(fileInput.files.length){
-    const form = new FormData();
-    form.append("file", fileInput.files[0]);
+    msgInput.value = "";
+  };
 
-    fetch("/upload",{ method:"POST", body:form })
-      .then(r=>r.json())
-      .then(d=>{
-        socket.emit("message",
-          `<a href="${d.file}" target="_blank" style="color:#38bdf8">📎 ملف</a>`
-        );
-      });
-
-    fileInput.value="";
-  }
-
-  if(msg){
-    socket.emit("message", msg);
-    msgInput.value="";
-  }
-}
+  // Enter key
+  msgInput.addEventListener("keypress", e => {
+    if (e.key === "Enter") sendBtn.click();
+  });
 </script>
 
 </body>
