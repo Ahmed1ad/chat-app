@@ -16,17 +16,15 @@ body{
   display:flex;
   flex-direction:column;
 }
-
-/* HEADER */
 header{
   background:#202c33;
-  padding:12px;
+  padding:10px;
   text-align:center;
-  font-weight:bold;
   border-bottom:1px solid #2a3942;
 }
+header .title{font-weight:bold}
+header .status{font-size:12px;opacity:.7}
 
-/* CHAT */
 #chat{
   flex:1;
   padding:10px;
@@ -37,203 +35,225 @@ header{
 }
 .msg{
   max-width:80%;
-  padding:8px 10px;
+  padding:8px;
   border-radius:8px;
   word-break:break-word;
-  font-size:15px;
 }
-.me{
-  align-self:flex-end;
-  background:#005c4b;
-}
-.other{
-  align-self:flex-start;
-}
-.name{
-  font-size:12px;
-  opacity:.7;
-  margin-bottom:2px;
-}
-.meta{
-  font-size:11px;
-  opacity:.6;
-  margin-top:3px;
-  text-align:right;
-}
+.me{align-self:flex-end;background:#005c4b}
+.other{align-self:flex-start}
+.name{font-size:12px;opacity:.7;margin-bottom:4px}
+.meta{font-size:11px;opacity:.6;margin-top:4px;text-align:right}
+.msg img{max-width:100%;border-radius:6px;cursor:pointer}
 
-/* INPUT */
 footer{
-  display:flex;
-  padding:8px;
   background:#202c33;
-  gap:6px;
+  padding:6px;
 }
-input{
+#typing{font-size:12px;opacity:.7;padding-left:10px;height:16px}
+.input-row{display:flex;gap:6px}
+input[type=text]{
   flex:1;
   padding:10px;
   border:none;
   border-radius:20px;
   outline:none;
-  font-size:15px;
 }
+input[type=file]{display:none}
 button{
   background:#00a884;
   border:none;
-  padding:10px 16px;
+  padding:10px 14px;
   border-radius:50%;
   font-size:16px;
   cursor:pointer;
 }
-
-/* USERNAME MODAL */
-#overlay{
-  position:fixed;
-  inset:0;
-  background:rgba(0,0,0,.8);
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  z-index:10;
-}
-#modal{
-  background:#202c33;
-  padding:20px;
-  border-radius:8px;
-  width:90%;
-  max-width:320px;
-  text-align:center;
-}
-#modal input{
-  width:100%;
-  margin-top:10px;
-}
-#modal button{
-  margin-top:10px;
-  width:100%;
-  border-radius:8px;
-}
+.attach{background:#2a3942}
 </style>
 </head>
+
 <body>
 
-<header>💬 Chat</header>
+<header>
+  <div class="title">💬 Chat</div>
+  <div class="status" id="onlineStatus">Loading...</div>
+</header>
 
 <div id="chat"></div>
 
 <footer>
-  <input id="msg" placeholder="اكتب رسالة…">
-  <button id="sendBtn">➤</button>
+  <div id="typing"></div>
+  <div class="input-row">
+    <label>
+      <input type="file" id="imageInput" accept="image/*">
+      <button class="attach">📷</button>
+    </label>
+    <input id="msg" placeholder="اكتب رسالة…">
+    <button id="sendBtn">➤</button>
+  </div>
 </footer>
 
-<!-- Username Modal -->
-<div id="overlay" style="display:none">
-  <div id="modal">
-    <h3>👤 اسمك</h3>
-    <input id="nameInput" placeholder="اكتب اسمك">
-    <button id="saveName">دخول</button>
-  </div>
-</div>
-
-<!-- Firebase config -->
 <script src="/config.js"></script>
 
 <script type="module">
+/* 🔥 Firebase */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
 import {
-  getFirestore,
-  collection,
-  addDoc,
-  query,
-  orderBy,
-  onSnapshot,
-  serverTimestamp,
-  updateDoc,
-  doc
+  getFirestore, collection, addDoc, query, orderBy,
+  onSnapshot, serverTimestamp, updateDoc, doc, setDoc
 } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
 
-/* 🔐 INIT */
+/* 🚀 INIT */
 const app = initializeApp(window.FIREBASE_CONFIG);
 const db = getFirestore(app);
+
+/* ☁️ Cloudinary */
+const CLOUD_NAME = "dfisng8rr";
+const UPLOAD_PRESET = "Chat-app";
+
+async function uploadImage(file){
+  const form = new FormData();
+  form.append("file", file);
+  form.append("upload_preset", UPLOAD_PRESET);
+
+  const res = await fetch(
+    `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`,
+    { method:"POST", body:form }
+  );
+  const data = await res.json();
+  return data.secure_url;
+}
 
 /* 👤 USER */
 let uid = localStorage.getItem("uid");
 if(!uid){
-  uid = "u_" + Math.random().toString(36).slice(2);
-  localStorage.setItem("uid", uid);
+  uid="u_"+Math.random().toString(36).slice(2);
+  localStorage.setItem("uid",uid);
 }
 
 let username = localStorage.getItem("username");
+if(!username){
+  username = prompt("اكتب اسمك");
+  localStorage.setItem("username",username);
+}
+
 let color = localStorage.getItem("color");
 if(!color){
-  color = `hsl(${Math.random()*360},70%,60%)`;
-  localStorage.setItem("color", color);
+  color=`hsl(${Math.random()*360},70%,60%)`;
+  localStorage.setItem("color",color);
 }
 
 /* UI */
-const chat = document.getElementById("chat");
-const msgInput = document.getElementById("msg");
-const sendBtn = document.getElementById("sendBtn");
-const overlay = document.getElementById("overlay");
-const nameInput = document.getElementById("nameInput");
-const saveName = document.getElementById("saveName");
+const chat=document.getElementById("chat");
+const msgInput=document.getElementById("msg");
+const sendBtn=document.getElementById("sendBtn");
+const imageInput=document.getElementById("imageInput");
+const typingDiv=document.getElementById("typing");
+const onlineStatus=document.getElementById("onlineStatus");
 
-/* Username check */
-if(!username){
-  overlay.style.display="flex";
-}
-saveName.onclick = ()=>{
-  const n = nameInput.value.trim();
-  if(!n) return;
-  username = n;
-  localStorage.setItem("username", username);
-  overlay.style.display="none";
-};
+/* 🟢 Presence */
+const presenceRef=doc(db,"presence",uid);
+setDoc(presenceRef,{name:username,online:true,lastSeen:serverTimestamp()},{merge:true});
+window.addEventListener("beforeunload",()=>{
+  setDoc(presenceRef,{online:false,lastSeen:serverTimestamp()},{merge:true});
+});
 
-/* 📡 REALTIME */
-const q = query(collection(db,"messages"), orderBy("time","asc"));
+onSnapshot(collection(db,"presence"),snap=>{
+  const arr=[];
+  snap.forEach(d=>{
+    if(d.id!==uid){
+      const u=d.data();
+      if(u.online) arr.push(`${u.name} متصل الآن`);
+      else if(u.lastSeen?.toDate){
+        const m=Math.floor((Date.now()-u.lastSeen.toDate())/60000);
+        arr.push(`${u.name} آخر ظهور منذ ${m} دقيقة`);
+      }
+    }
+  });
+  onlineStatus.textContent=arr.length?arr.join(" | "):"لا يوجد متصلون";
+});
 
+/* ✍ Typing */
+const typingRef=doc(db,"typing","status");
+let typingTimeout;
+onSnapshot(typingRef,snap=>{
+  if(!snap.exists()) return;
+  const users=Object.values(snap.data()).filter(v=>v&&v!==username);
+  typingDiv.textContent=users.length?users.join(", ")+" يكتب الآن...":"";
+});
+msgInput.addEventListener("input",()=>{
+  setDoc(typingRef,{[uid]:username},{merge:true});
+  clearTimeout(typingTimeout);
+  typingTimeout=setTimeout(()=>{
+    setDoc(typingRef,{[uid]:false},{merge:true});
+  },1500);
+});
+
+/* 💬 Messages */
+const q=query(collection(db,"messages"),orderBy("time","asc"));
 onSnapshot(q,snap=>{
   chat.innerHTML="";
   snap.forEach(d=>{
-    const m = d.data();
-    const div = document.createElement("div");
+    const m=d.data();
+    const div=document.createElement("div");
     div.className="msg "+(m.uid===uid?"me":"other");
     if(m.uid!==uid) div.style.background=m.color;
 
+    let content = m.type==="image"
+      ? `<img src="${m.url}" onclick="window.open('${m.url}','_blank')">`
+      : m.text;
+
+    let status="";
+    if(m.uid===uid){
+      if(m.status==="sent") status="✔";
+      if(m.status==="delivered") status="✔✔";
+      if(m.status==="seen") status="✔✔ Seen";
+    }
+
     div.innerHTML=`
       <div class="name">${m.name}</div>
-      ${m.text}
-      <div class="meta">
-        ${m.uid===uid ? (m.seen?"✔✔ Seen":"✔ Sent") : ""}
-      </div>
+      ${content}
+      <div class="meta">${status}</div>
     `;
     chat.appendChild(div);
 
-    if(m.uid!==uid && !m.seen){
-      updateDoc(doc(db,"messages",d.id),{seen:true});
+    if(m.uid!==uid && m.status==="sent"){
+      updateDoc(doc(db,"messages",d.id),{status:"delivered"});
+    }
+    if(m.uid!==uid && m.status!=="seen"){
+      updateDoc(doc(db,"messages",d.id),{status:"seen"});
     }
   });
   chat.scrollTop=chat.scrollHeight;
 });
 
-/* 📤 SEND */
+/* 📤 Send text */
 sendBtn.onclick=async()=>{
   const text=msgInput.value.trim();
-  if(!text||!username) return;
+  if(!text) return;
 
   await addDoc(collection(db,"messages"),{
-    text,
-    uid,
-    name:username,
-    color,
-    time:serverTimestamp(),
-    seen:false
+    type:"text",text,uid,name:username,color,
+    time:serverTimestamp(),status:"sent"
   });
   msgInput.value="";
+  setDoc(typingRef,{[uid]:false},{merge:true});
 };
 msgInput.addEventListener("keydown",e=>{
   if(e.key==="Enter") sendBtn.click();
 });
+
+/* 📷 Send image */
+imageInput.onchange=async()=>{
+  const file=imageInput.files[0];
+  if(!file) return;
+
+  const url=await uploadImage(file);
+  await addDoc(collection(db,"messages"),{
+    type:"image",url,uid,name:username,color,
+    time:serverTimestamp(),status:"sent"
+  });
+  imageInput.value="";
+};
 </script>
 
 </body>
